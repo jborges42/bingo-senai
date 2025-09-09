@@ -1,0 +1,334 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bingo TIC — Diagnóstico de Conhecimentos</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --card: #121a32;
+    --accent: #4ea1ff;
+    --muted: #7f8aa3;
+    --ok: #3ad29f;
+    --warn: #ffc857;
+    --danger: #ff6b6b;
+    --text: #e7ecf7;
+  }
+  html, body { background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; padding:0; }
+  .wrap { max-width: 1100px; margin: 28px auto; padding: 0 16px; }
+  h1 { margin: 0 0 8px; letter-spacing: 0.3px; }
+  .subtitle { color: var(--muted); margin: 0 0 18px; }
+  .panel {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  label { font-size: 14px; color: var(--muted); }
+  input[type="text"] {
+    background: #0e1530; border: 1px solid rgba(255,255,255,0.12); color: var(--text); padding: 10px 12px; border-radius: 10px; min-width: 220px;
+  }
+  .btn {
+    background: var(--accent); color: #07142a; border: none; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer;
+    transition: transform .06s ease, box-shadow .2s ease; box-shadow: 0 6px 18px rgba(78,161,255,.35);
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.secondary { background: #233359; color: #e9f1ff; box-shadow: none; }
+  .btn.ghost { background: transparent; border: 1px solid rgba(255,255,255,.15); color: var(--text); }
+  .grid {
+    margin-top: 18px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .cell {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    min-height: 110px; padding: 12px;
+    display: grid; grid-template-rows: auto 1fr auto;
+    cursor: pointer; user-select: none;
+    transition: transform .05s ease, border-color .1s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .cell:hover { transform: translateY(-2px); }
+  .cell .cat { font-size: 12px; color: var(--muted); letter-spacing: .4px; text-transform: uppercase; }
+  .cell .txt { font-size: 15px; margin-top: 6px; line-height: 1.3; }
+  .cell .foot { margin-top: 10px; font-size: 12px; color: #a8b7d6; display: flex; justify-content: space-between; align-items: center; }
+  .chip { font-size: 11px; padding: 2px 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); color: #b9c7e3;}
+  .cell.marked { outline: 2px solid var(--ok); border-color: var(--ok); background: #122737; box-shadow: 0 10px 25px rgba(58,210,159,.15); }
+  .bars { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bar { height: 8px; background: rgba(255,255,255,0.12); border-radius: 999px; flex: 1 1 120px; position: relative; overflow: hidden; }
+  .bar > span { position: absolute; left:0; top:0; bottom:0; width: 0; background: linear-gradient(90deg, var(--accent), var(--ok)); transition: width .3s ease; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .footer { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .status {
+    background: #0e1530; border: 1px dashed rgba(255,255,255,0.18); border-radius: 12px; padding: 10px 12px; font-size: 14px;
+  }
+  .toast {
+    position: fixed; right: 16px; bottom: 16px; background: #0e1530; color: var(--text);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 14px; display:none;
+    box-shadow: 0 10px 25px rgba(0,0,0,.3);
+  }
+  .confetti { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 99; }
+  .muted { color: var(--muted); }
+  @media (max-width: 640px) {
+    .cell { min-height: 96px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎯 Bingo TIC — Diagnóstico de Conhecimentos</h1>
+    <p class="subtitle">Clique nas casas que <b>você já sabe fazer</b>. Complete 1 linha, coluna ou diagonal para gritar <b>BINGO!</b> (e mostre ao professor).</p>
+
+    <div class="panel">
+      <div class="row">
+        <label for="nome">Seu nome:</label>
+        <input id="nome" type="text" placeholder="Digite seu nome" />
+        <button class="btn secondary" id="novo">Novo cartão</button>
+        <button class="btn" id="copiar">Copiar resumo</button>
+        <button class="btn ghost" id="modo">Modo caça‑talentos</button>
+      </div>
+      <div class="row">
+        <span class="status" id="status">Marcadas: <b id="count">0</b>/9 • Linhas completas: <b id="lines">0</b></span>
+      </div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="footer">
+      <div class="bars" style="flex:1">
+        <div class="bar" title="Segurança da Informação"><span id="b-sec"></span></div>
+        <div class="bar" title="Internet & Nuvem"><span id="b-web"></span></div>
+        <div class="bar" title="Escritório (Docs/Planilhas/Slides)"><span id="b-office"></span></div>
+        <div class="bar" title="Sistema Operacional"><span id="b-os"></span></div>
+        <div class="bar" title="Hardware & Periféricos"><span id="b-hw"></span></div>
+        <div class="bar" title="Comunicação Profissional"><span id="b-comm"></span></div>
+      </div>
+      <span class="note">Dica: se não souber, marque “Quero aprender” no modo caça‑talentos e convide um colega para mostrar.</span>
+    </div>
+  </div>
+
+  <canvas class="confetti" id="confetti"></canvas>
+  <div class="toast" id="toast">Copiado para a área de transferência ✅</div>
+
+<script>
+  // Pool de itens — alinhado aos objetos de conhecimento do plano
+  // Categorias: sec (Segurança), web (Internet & Nuvem), office, os, hw, comm
+  const POOL = {
+    sec: [
+      "Usa autenticação em duas etapas (2FA) em pelo menos 1 conta",
+      "Cria senhas fortes (12+ caracteres) e diferentes para cada serviço",
+      "Reconhece e-mails de phishing (remetente suspeito, link encurtado)",
+      "Faz backup periódico de arquivos importantes",
+      "Sabe o que é malware e como evitar downloads suspeitos"
+    ],
+    web: [
+      "Usa operadores de busca (site:, aspas) para achar informações",
+      "Armazena arquivos na nuvem (Drive/OneDrive) e compartilha por link",
+      "Baixa, renomeia e organiza arquivos baixados em pastas",
+      "Envia e-mail com anexo e assunto claro",
+      "Cita a fonte quando usa imagens/textos da internet"
+    ],
+    office: [
+      "Formatou um documento com títulos, margens e cabeçalho/rodapé",
+      "Fez planilha com SOMA e MÉDIA e formatou números",
+      "Aplicou filtro e ordenação em uma tabela de dados",
+      "Criou gráfico simples (colunas/linhas) a partir de uma planilha",
+      "Montou uma apresentação com imagens e, no mínimo, 5 slides"
+    ],
+    os: [
+      "Cria, renomeia e organiza pastas por assunto/projeto",
+      "Pesquisa arquivos e programas pelo menu iniciar/spotlight",
+      "Usa atalhos de teclado (Ctrl+C/V, Alt+Tab) no dia a dia",
+      "Compacta/Descompacta arquivos (.zip)",
+      "Configura uma impressora ou outro periférico no sistema"
+    ],
+    hw: [
+      "Identifica CPU, RAM e armazenamento (SSD/HDD) de um computador",
+      "Conecta e configura teclado, mouse, impressora ou webcam",
+      "Sabe a diferença entre SSD e HDD e suas vantagens",
+      "Reconhece portas comuns (USB-A/C, HDMI, RJ-45)",
+      "Limpa poeira e faz manutenção básica sem danificar componentes"
+    ],
+    comm: [
+      "Escreve e-mail formal com saudação, parágrafo e assinatura",
+      "Fez um resumo ou relatório curto sobre um tema técnico",
+      "Registrou uma ata ou memorando simples de reunião",
+      "Adapta linguagem: técnica vs. linguagem comum conforme o público",
+      "Apresenta ideias com postura e tom de voz adequados"
+    ]
+  };
+
+  const CATS = ["sec","web","office","os","hw","comm"];
+  const TITLES = {
+    sec:"Segurança",
+    web:"Internet & Nuvem",
+    office:"Escritório",
+    os:"Sistema Operacional",
+    hw:"Hardware",
+    comm:"Comunicação"
+  };
+
+  const gridEl = document.getElementById("grid");
+  const linesEl = document.getElementById("lines");
+  const countEl = document.getElementById("count");
+  const toast = document.getElementById("toast");
+  const confettiCanvas = document.getElementById("confetti");
+  const ctx = confettiCanvas.getContext("2d");
+  const bars = {
+    sec: document.getElementById("b-sec"),
+    web: document.getElementById("b-web"),
+    office: document.getElementById("b-office"),
+    os: document.getElementById("b-os"),
+    hw: document.getElementById("b-hw"),
+    comm: document.getElementById("b-comm")
+  };
+
+  let cells = []; // {cat, txt, marked, alias}
+  let hunterMode = false;
+
+  function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+  function pickRandom(cat, n){ return shuffle([...POOL[cat]]).slice(0,n).map(txt => ({cat, txt})); }
+
+  function generateCard(){
+    // Garantir diversidade mínima: 6 categorias -> pelo menos 1 de cada; sobram 3 aleatórios
+    const base = [];
+    CATS.forEach(cat => base.push(...pickRandom(cat,1)));
+    // preencher mais 3 misturando quaisquer categorias
+    const restPool = [];
+    CATS.forEach(c => restPool.push(...POOL[c].map(txt => ({cat:c, txt})))) ;
+    shuffle(restPool);
+    const extras = [];
+    for (const item of restPool){
+      const exists = base.find(b => b.txt === item.txt);
+      if(!exists) extras.push(item);
+      if(extras.length===3) break;
+    }
+    const nine = shuffle([...base, ...extras]).slice(0,9);
+    cells = nine.map((it, idx) => ({...it, marked:false, alias:""}));
+    render();
+  }
+
+  function render(){
+    gridEl.innerHTML = "";
+    cells.forEach((c, idx) => {
+      const d = document.createElement("div");
+      d.className = "cell" + (c.marked ? " marked" : "");
+      d.innerHTML = `
+        <div class="cat">${TITLES[c.cat]}</div>
+        <div class="txt">${c.txt}</div>
+        <div class="foot">
+          <span class="chip">${c.marked ? "✅ marcado" : hunterMode ? "👤 assinado: " + (c.alias||"—") : "Clique para marcar"}</span>
+          ${hunterMode ? `<input data-i="${idx}" type="text" placeholder="Nome do colega" style="background:#0b1430;border:1px solid rgba(255,255,255,.12);color:#d9e6ff;border-radius:8px;padding:4px 6px;width:130px;font-size:12px;">` : ""}
+        </div>
+      `;
+      d.addEventListener("click", (e) => {
+        // evitar marcar quando focando o input
+        if(hunterMode && e.target && e.target.tagName === "INPUT") return;
+        c.marked = !c.marked; render(); checkBingo(); updateBars();
+      });
+      if(hunterMode){
+        // delegar input
+        setTimeout(() => {
+          const inp = d.querySelector("input");
+          if(inp){
+            inp.value = c.alias || "";
+            inp.addEventListener("input", (ev)=> {
+              c.alias = ev.target.value;
+            });
+          }
+        }, 0);
+      }
+      gridEl.appendChild(d);
+    });
+    countEl.textContent = cells.filter(c=>c.marked).length;
+    updateBars();
+    checkBingo(true);
+  }
+
+  function checkBingo(silent=false){
+    const m = cells.map(c=>c.marked);
+    const lines = [
+      [0,1,2],[3,4,5],[6,7,8], // rows
+      [0,3,6],[1,4,7],[2,5,8], // cols
+      [0,4,8],[2,4,6]          // diagonals
+    ];
+    let done = 0;
+    for(const L of lines){ if(L.every(i => m[i])) done++; }
+    linesEl.textContent = done;
+    if(!silent && done>0){ launchConfetti(); }
+  }
+
+  // Barras por categoria
+  function updateBars(){
+    const counts = { sec:0, web:0, office:0, os:0, hw:0, comm:0 };
+    const totals = { sec:0, web:0, office:0, os:0, hw:0, comm:0 };
+    for(const c of cells){ totals[c.cat]++; if(c.marked) counts[c.cat]++; }
+    for(const k of Object.keys(bars)){
+      const pct = totals[k] ? Math.round((counts[k]/totals[k])*100) : 0;
+      bars[k].style.width = pct + "%";
+    }
+    countEl.textContent = cells.filter(c=>c.marked).length;
+  }
+
+  // Copiar resumo
+  function copySummary(){
+    const nome = document.getElementById("nome").value || "Aluno(a)";
+    const marked = cells.map((c,i)=> c.marked ? `- [${TITLES[c.cat]}] ${c.txt}${c.alias?` (assinado por: ${c.alias})`:""}` : null).filter(Boolean).join("\n");
+    const counts = { sec:0, web:0, office:0, os:0, hw:0, comm:0 };
+    cells.forEach(c=>{ if(c.marked) counts[c.cat]++; });
+    const text = `${nome} — Bingo TIC
+Marcadas: ${cells.filter(c=>c.marked).length}/9 | Linhas completas: ${linesEl.textContent}
+Perfil por categoria: Segurança ${counts.sec}, Web ${counts.web}, Escritório ${counts.office}, SO ${counts.os}, Hardware ${counts.hw}, Comunicação ${counts.comm}
+
+Itens marcados:
+${marked || "(nenhum marcado ainda)"}
+`;
+    navigator.clipboard.writeText(text).then(()=>{
+      toast.style.display = "block";
+      setTimeout(()=> toast.style.display="none", 1800);
+    });
+  }
+
+  // Confetti básico
+  let particles = [];
+  function resizeCanvas(){ confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+  window.addEventListener("resize", resizeCanvas); resizeCanvas();
+  function launchConfetti(){
+    particles = [];
+    const colors = ["#4ea1ff","#3ad29f","#ffc857","#ff6b6b","#a78bfa"];
+    for(let i=0;i<140;i++){
+      particles.push({
+        x: confettiCanvas.width/2, y: 0, vx: (Math.random()*6-3), vy: (Math.random()*-2-6),
+        g: 0.15, size: Math.random()*5+3, color: colors[(Math.random()*colors.length)|0], life: 0, maxLife: 140+Math.random()*60
+      });
+    }
+    animate();
+  }
+  function animate(){
+    ctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+    particles.forEach(p => {
+      p.vy += p.g;
+      p.x += p.vx; p.y += p.vy; p.life++;
+      ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    particles = particles.filter(p => p.life < p.maxLife && p.y < confettiCanvas.height+20);
+    if(particles.length) requestAnimationFrame(animate);
+  }
+
+  // Eventos
+  document.getElementById("novo").addEventListener("click", generateCard);
+  document.getElementById("copiar").addEventListener("click", copySummary);
+  document.getElementById("modo").addEventListener("click", () => {
+    hunterMode = !hunterMode;
+    document.getElementById("modo").textContent = hunterMode ? "Modo padrão" : "Modo caça‑talentos";
+    render();
+  });
+
+  // Inicializar
+  generateCard();
+</script>
+</body>
+</html>
